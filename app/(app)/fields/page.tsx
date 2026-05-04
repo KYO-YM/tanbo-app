@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import FieldImporter from '@/components/fields/FieldImporter'
+import FieldDeleteButton from '@/components/fields/FieldDeleteButton'
 import Link from 'next/link'
 import { MapPin } from 'lucide-react'
 import type { Field } from '@/lib/supabase/types'
@@ -41,12 +42,15 @@ export default async function FieldsPage() {
                   {f.area_ha ? `${(f.area_ha * 100).toFixed(1)} a` : '-'}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <Link
-                    href={`/fields/${f.id}`}
-                    className="text-green-600 hover:underline text-xs font-medium"
-                  >
-                    詳細
-                  </Link>
+                  <div className="flex items-center justify-end gap-2">
+                    <Link
+                      href={`/fields/${f.id}`}
+                      className="text-green-600 hover:underline text-xs font-medium"
+                    >
+                      詳細
+                    </Link>
+                    <FieldDeleteButton fieldId={f.id} fieldName={f.name} />
+                  </div>
                 </td>
               </tr>
             ))}
