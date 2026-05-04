@@ -31,6 +31,7 @@ export interface WorkRecord {
   field_id: string
   work_type_id: string
   status: WorkStatus
+  work_date: string | null
   assigned_to: string | null
   scheduled_at: string | null
   completed_at: string | null

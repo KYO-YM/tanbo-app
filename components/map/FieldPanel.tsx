@@ -26,8 +26,8 @@ export default function FieldPanel({ field, workRecords, workTypes, onClose }: P
           <X size={18} />
         </button>
       </div>
-      <div className="space-y-1.5 mb-3">
-        {workTypes.slice(0, 5).map(wt => {
+      <div className="space-y-1.5 mb-3 max-h-48 overflow-y-auto">
+        {workTypes.map(wt => {
           const record = workRecords.find(r => r.work_type_id === wt.id)
           const status = record?.status ?? 'none'
           return (

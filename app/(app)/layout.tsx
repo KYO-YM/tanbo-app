@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import LogoutButton from './LogoutButton'
+import NavMenu from './NavMenu'
 import type { Profile } from '@/lib/supabase/types'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -16,23 +17,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .single()
 
   const profile = profileData as Pick<Profile, 'name' | 'role'> | null
+  const userName = profile?.name ?? user.email ?? ''
+  const isAdmin = profile?.role === 'admin'
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       <header className="bg-green-700 text-white px-4 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-4">
-          <span className="font-bold text-lg">🌾 田んぼ管理</span>
-          <nav className="hidden sm:flex gap-3 text-sm">
-            <Link href="/map" className="hover:underline opacity-90 hover:opacity-100">地図</Link>
-            <Link href="/fields" className="hover:underline opacity-90 hover:opacity-100">田んぼ一覧</Link>
-            <Link href="/work-types" className="hover:underline opacity-90 hover:opacity-100">作業種別</Link>
-            {profile?.role === 'admin' && (
-              <Link href="/users" className="hover:underline opacity-90 hover:opacity-100">ユーザー管理</Link>
-            )}
-          </nav>
+          <Link href="/map" className="font-bold text-lg">🌾 田んぼ管理</Link>
+          <NavMenu isAdmin={isAdmin} userName={userName} onLogout={() => {}} />
         </div>
         <div className="flex items-center gap-2 text-sm">
-          <span className="hidden sm:inline">{profile?.name ?? user.email}</span>
+          <span className="hidden sm:inline">{userName}</span>
           <LogoutButton />
         </div>
       </header>

@@ -14,31 +14,59 @@ export default function WorkRecordForm({ fieldId, workTypes, existingRecords }: 
   const [loading, setLoading] = useState<string | null>(null)
   const [memoEditing, setMemoEditing] = useState<string | null>(null)
   const [memoValue, setMemoValue] = useState('')
+  const [dateEditing, setDateEditing] = useState<string | null>(null)
+  const [dateValue, setDateValue] = useState('')
   const router = useRouter()
 
   async function updateStatus(workTypeId: string, status: WorkStatus) {
     setLoading(workTypeId)
-    await fetch('/api/work-records', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ field_id: fieldId, work_type_id: workTypeId, status }),
-    })
-    setLoading(null)
-    router.refresh()
-  }
-
-  async function saveMemo(workTypeId: string) {
+    const record = existingRecords.find(r => r.work_type_id === workTypeId)
     await fetch('/api/work-records', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         field_id: fieldId,
         work_type_id: workTypeId,
-        status: existingRecords.find(r => r.work_type_id === workTypeId)?.status ?? 'pending',
+        status,
+        work_date: record?.work_date ?? null,
+        memo: record?.memo ?? null,
+      }),
+    })
+    setLoading(null)
+    router.refresh()
+  }
+
+  async function saveMemo(workTypeId: string) {
+    const record = existingRecords.find(r => r.work_type_id === workTypeId)
+    await fetch('/api/work-records', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        field_id: fieldId,
+        work_type_id: workTypeId,
+        status: record?.status ?? 'pending',
+        work_date: record?.work_date ?? null,
         memo: memoValue,
       }),
     })
     setMemoEditing(null)
+    router.refresh()
+  }
+
+  async function saveDate(workTypeId: string) {
+    const record = existingRecords.find(r => r.work_type_id === workTypeId)
+    await fetch('/api/work-records', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        field_id: fieldId,
+        work_type_id: workTypeId,
+        status: record?.status ?? 'pending',
+        work_date: dateValue || null,
+        memo: record?.memo ?? null,
+      }),
+    })
+    setDateEditing(null)
     router.refresh()
   }
 
@@ -58,6 +86,7 @@ export default function WorkRecordForm({ fieldId, workTypes, existingRecords }: 
           <tr>
             <th className="text-left px-4 py-3">作業種別</th>
             <th className="text-left px-4 py-3">状態</th>
+            <th className="text-left px-4 py-3 hidden md:table-cell">実施日</th>
             <th className="text-left px-4 py-3 hidden sm:table-cell">メモ</th>
             <th className="px-4 py-3 w-28">変更</th>
           </tr>
@@ -66,7 +95,8 @@ export default function WorkRecordForm({ fieldId, workTypes, existingRecords }: 
           {workTypes.map(wt => {
             const record = existingRecords.find(r => r.work_type_id === wt.id)
             const status: WorkStatus = record?.status ?? 'pending'
-            const isEditing = memoEditing === wt.id
+            const isMemoEditing = memoEditing === wt.id
+            const isDateEditing = dateEditing === wt.id
 
             return (
               <tr key={wt.id} className="hover:bg-gray-50">
@@ -85,8 +115,32 @@ export default function WorkRecordForm({ fieldId, workTypes, existingRecords }: 
                     {STATUS_LABELS[status]}
                   </span>
                 </td>
+                <td className="px-4 py-3 hidden md:table-cell text-gray-500">
+                  {isDateEditing ? (
+                    <div className="flex gap-1 items-center">
+                      <input
+                        type="date"
+                        value={dateValue}
+                        onChange={e => setDateValue(e.target.value)}
+                        className="border border-gray-300 rounded px-2 py-0.5 text-xs"
+                        autoFocus
+                      />
+                      <button onClick={() => saveDate(wt.id)} className="text-green-600 text-xs font-medium">保存</button>
+                      <button onClick={() => setDateEditing(null)} className="text-gray-400 text-xs">✕</button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setDateEditing(wt.id); setDateValue(record?.work_date ?? '') }}
+                      className="text-left hover:text-green-600 min-w-[6rem]"
+                    >
+                      {record?.work_date
+                        ? new Date(record.work_date).toLocaleDateString('ja-JP')
+                        : <span className="text-gray-300">日付を追加...</span>}
+                    </button>
+                  )}
+                </td>
                 <td className="px-4 py-3 hidden sm:table-cell text-gray-500 max-w-xs">
-                  {isEditing ? (
+                  {isMemoEditing ? (
                     <div className="flex gap-1">
                       <input
                         value={memoValue}

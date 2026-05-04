@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 export default function FieldImporter() {
   const [features, setFeatures] = useState<FudeFeature[]>([])
   const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [defaultOwner, setDefaultOwner] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
@@ -26,25 +27,24 @@ export default function FieldImporter() {
     } catch {
       setError('GeoJSONファイルの読み込みに失敗しました。農水省からダウンロードしたファイルか確認してください。')
     }
-    // 同じファイルを再選択できるようリセット
     e.target.value = ''
   }
 
   async function handleImport() {
     setLoading(true)
     const targets = features.filter((_, i) => selected.has(i))
-    for (const f of targets) {
-      await fetch('/api/fields', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: String(f.properties['筆ポリゴンID'] ?? `田んぼ_${Date.now()}`),
-          area_ha: calcAreaHa(f.geometry),
-          geometry: f.geometry,
-          fude_id: String(f.properties['筆ポリゴンID'] ?? ''),
-        }),
-      })
-    }
+    const payload = targets.map(f => ({
+      name: String(f.properties['筆ポリゴンID'] ?? `田んぼ_${Date.now()}`),
+      area_ha: calcAreaHa(f.geometry),
+      geometry: f.geometry,
+      fude_id: String(f.properties['筆ポリゴンID'] ?? ''),
+      owner: defaultOwner.trim() || null,
+    }))
+    await fetch('/api/fields', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
     setLoading(false)
     setFeatures([])
     setSelected(new Set())
@@ -91,6 +91,16 @@ export default function FieldImporter() {
 
       {features.length > 0 && (
         <>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">所有者（一括設定・任意）</label>
+            <input
+              type="text"
+              value={defaultOwner}
+              onChange={e => setDefaultOwner(e.target.value)}
+              placeholder="例: 田中農場"
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm"
+            />
+          </div>
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-600">{features.length} 件の区画が見つかりました</p>
             <button onClick={toggleAll} className="text-xs text-green-600 hover:underline flex items-center gap-1">

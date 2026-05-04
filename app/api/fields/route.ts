@@ -7,6 +7,12 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
+  if (Array.isArray(body)) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from('fields') as any).insert(body).select()
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    return NextResponse.json(data)
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.from('fields') as any).insert(body).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
