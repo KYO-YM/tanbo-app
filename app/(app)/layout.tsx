@@ -25,7 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <header className="bg-green-700 text-white px-4 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-4">
           <Link href="/map" className="font-bold text-lg">🌾 田んぼ管理</Link>
-          <NavMenu isAdmin={isAdmin} userName={userName} onLogout={() => {}} />
+          <NavMenu isAdmin={isAdmin} userName={userName} />
         </div>
         <div className="flex items-center gap-2 text-sm">
           <span className="hidden sm:inline">{userName}</span>

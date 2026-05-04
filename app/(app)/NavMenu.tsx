@@ -6,7 +6,6 @@ import { Menu, X } from 'lucide-react'
 interface Props {
   isAdmin: boolean
   userName: string
-  onLogout: () => void
 }
 
 const links = [
