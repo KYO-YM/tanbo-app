@@ -7,6 +7,7 @@ import WaterCheckSetter from '@/components/fields/WaterCheckSetter'
 import Link from 'next/link'
 import { MapPin } from 'lucide-react'
 import type { Field } from '@/lib/supabase/types'
+import { calcAreaM2, formatArea } from '@/lib/utils/geo'
 
 export default async function FieldsPage() {
   const supabase = await createClient()
@@ -45,8 +46,8 @@ export default async function FieldsPage() {
               <tr key={f.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium text-gray-800">{f.name}</td>
                 <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{f.owner ?? '-'}</td>
-                <td className="px-4 py-3 text-gray-500 hidden md:table-cell">
-                  {f.area_ha ? `${(f.area_ha * 100).toFixed(1)} a` : '-'}
+                <td className="px-4 py-3 text-gray-500 hidden md:table-cell text-xs">
+                  {formatArea(calcAreaM2(f.geometry.coordinates))}
                 </td>
                 <td className="px-4 py-3 hidden lg:table-cell">
                   <WaterCheckSetter fieldId={f.id} nextWaterCheck={f.next_water_check} />

@@ -41,6 +41,15 @@ export interface WorkRecord {
   updated_at: string
 }
 
+export interface Harvest {
+  id: string
+  field_id: string
+  year: number
+  amount_kg: number | null
+  note: string | null
+  created_at: string
+}
+
 export interface Profile {
   id: string
   name: string
