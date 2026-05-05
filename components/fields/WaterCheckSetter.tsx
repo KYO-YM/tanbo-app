@@ -1,92 +1,126 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Droplets, Check, X } from 'lucide-react'
+import { Droplets, X } from 'lucide-react'
 
 interface Props {
   fieldId: string
   nextWaterCheck: string | null
 }
 
-function daysUntil(dateStr: string | null): number | null {
-  if (!dateStr) return null
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const target = new Date(dateStr)
-  return Math.round((target.getTime() - today.getTime()) / 86400000)
+const PRESETS = [
+  { label: '1時間後', hours: 1 },
+  { label: '3時間後', hours: 3 },
+  { label: '6時間後', hours: 6 },
+  { label: '12時間後', hours: 12 },
+  { label: '24時間後', hours: 24 },
+  { label: '48時間後', hours: 48 },
+]
+
+function hoursUntil(isoStr: string | null): number | null {
+  if (!isoStr) return null
+  return (new Date(isoStr).getTime() - Date.now()) / 3600000
 }
 
-function badgeClass(days: number | null): string {
-  if (days === null) return 'bg-gray-100 text-gray-500'
-  if (days < 0) return 'bg-red-100 text-red-600'
-  if (days <= 2) return 'bg-orange-100 text-orange-600'
-  return 'bg-blue-50 text-blue-600'
-}
-
-function badgeLabel(days: number | null, dateStr: string | null): string {
-  if (days === null || !dateStr) return '未設定'
-  if (days < 0) return `${Math.abs(days)}日超過`
-  if (days === 0) return '今日'
-  return `${days}日後`
+function badgeStyle(hours: number | null): { cls: string; label: string } {
+  if (hours === null) return { cls: 'bg-gray-100 text-gray-500', label: '未設定' }
+  if (hours < 0) {
+    const h = Math.abs(hours)
+    return { cls: 'bg-red-100 text-red-600', label: h < 1 ? '超過' : `${Math.floor(h)}時間超過` }
+  }
+  if (hours < 2) return { cls: 'bg-orange-100 text-orange-600', label: `あと${Math.round(hours * 60)}分` }
+  if (hours < 6) return { cls: 'bg-yellow-100 text-yellow-700', label: `あと${Math.round(hours)}時間` }
+  return { cls: 'bg-blue-50 text-blue-600', label: `あと${Math.round(hours)}時間` }
 }
 
 export function WaterCheckBadge({ nextWaterCheck }: { nextWaterCheck: string | null }) {
-  const days = daysUntil(nextWaterCheck)
+  const hours = hoursUntil(nextWaterCheck)
+  const { cls, label } = badgeStyle(hours)
   return (
-    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${badgeClass(days)}`}>
+    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${cls}`}>
       <Droplets size={10} />
-      {badgeLabel(days, nextWaterCheck)}
+      {label}
     </span>
   )
 }
 
 export default function WaterCheckSetter({ fieldId, nextWaterCheck }: Props) {
-  const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState(nextWaterCheck ?? '')
+  const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
-  const days = daysUntil(nextWaterCheck)
 
-  async function handleSave() {
+  const hours = hoursUntil(nextWaterCheck)
+  const { cls, label } = badgeStyle(hours)
+
+  async function setCheck(h: number) {
+    setLoading(true)
+    const dt = new Date(Date.now() + h * 3600000).toISOString()
+    await fetch('/api/fields', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: fieldId, next_water_check: dt }),
+    })
+    setLoading(false)
+    setOpen(false)
+    router.refresh()
+  }
+
+  async function clearCheck() {
     setLoading(true)
     await fetch('/api/fields', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: fieldId, next_water_check: value || null }),
+      body: JSON.stringify({ id: fieldId, next_water_check: null }),
     })
     setLoading(false)
-    setEditing(false)
+    setOpen(false)
     router.refresh()
   }
 
-  if (editing) {
-    return (
-      <div className="flex items-center gap-1">
-        <input
-          type="date"
-          value={value}
-          onChange={e => setValue(e.target.value)}
-          className="border rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
-          autoFocus
-        />
-        <button onClick={handleSave} disabled={loading} className="text-green-600 hover:text-green-700 p-0.5 disabled:opacity-40">
-          <Check size={14} />
-        </button>
-        <button onClick={() => { setValue(nextWaterCheck ?? ''); setEditing(false) }} className="text-gray-400 hover:text-gray-600 p-0.5">
-          <X size={14} />
-        </button>
-      </div>
-    )
-  }
-
   return (
-    <button
-      onClick={() => setEditing(true)}
-      className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium transition-opacity hover:opacity-80 ${badgeClass(days)}`}
-      title="次回水管理日を設定"
-    >
-      <Droplets size={10} />
-      {badgeLabel(days, nextWaterCheck)}
-    </button>
+    <div className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        disabled={loading}
+        className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium transition-opacity hover:opacity-80 disabled:opacity-50 ${cls}`}
+        title="次回水管理チェック時刻を設定"
+      >
+        <Droplets size={10} />
+        {label}
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full mt-1 z-40 bg-white rounded-xl shadow-lg border p-3 min-w-48">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-gray-600">次回チェックまで</span>
+              <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={13} />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5 mb-2">
+              {PRESETS.map(p => (
+                <button
+                  key={p.hours}
+                  onClick={() => setCheck(p.hours)}
+                  className="text-xs px-2 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium transition-colors text-center"
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            {nextWaterCheck && (
+              <button
+                onClick={clearCheck}
+                className="w-full text-xs px-2 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 transition-colors"
+              >
+                クリア
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
   )
 }

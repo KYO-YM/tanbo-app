@@ -9,12 +9,11 @@ export async function POST() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // 水管理チェックが必要な田んぼを取得（今日以前）
-  const today = new Date().toISOString().slice(0, 10)
+  // 水管理チェックが必要な田んぼを取得（現在時刻以前）
   const { data: fields } = await supabase
     .from('fields')
     .select('name, next_water_check')
-    .lte('next_water_check', today)
+    .lte('next_water_check', new Date().toISOString())
     .not('next_water_check', 'is', null)
 
   if (!fields || fields.length === 0) {
@@ -31,7 +30,11 @@ export async function POST() {
     return NextResponse.json({ sent: 0, message: 'LINE連携ユーザーなし' })
   }
 
-  const fieldList = fields.map(f => `・${f.name}（${f.next_water_check}）`).join('\n')
+  const fieldList = fields.map(f => {
+    const dt = new Date(f.next_water_check!)
+    const label = dt.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    return `・${f.name}（${label}）`
+  }).join('\n')
   const message = `🌾 水管理チェックのお知らせ\n\n以下の田んぼの水管理を確認してください：\n${fieldList}`
 
   let sent = 0

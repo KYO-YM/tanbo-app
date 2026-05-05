@@ -27,19 +27,21 @@ export default async function DashboardPage() {
     weatherLon = allCoords.reduce((s: number, c: number[]) => s + c[0], 0) / allCoords.length
   }
 
-  // 水管理アラート（今日以前）
-  const today = new Date().toISOString().slice(0, 10)
+  // 水管理アラート（時間ベース）
+  const now = Date.now()
   const waterAlerts = (fields ?? []).filter(
-    (f: { next_water_check: string | null }) => f.next_water_check && f.next_water_check <= today
+    (f: { next_water_check: string | null }) =>
+      f.next_water_check && new Date(f.next_water_check).getTime() <= now
   ) as { id: string; name: string; next_water_check: string }[]
 
-  // 近日中の水管理（3日以内）
-  const soon = new Date()
-  soon.setDate(soon.getDate() + 3)
-  const soonStr = soon.toISOString().slice(0, 10)
+  // 近日中の水管理（3時間以内）
+  const soonMs = now + 3 * 3600000
   const waterSoon = (fields ?? []).filter(
-    (f: { next_water_check: string | null }) =>
-      f.next_water_check && f.next_water_check > today && f.next_water_check <= soonStr
+    (f: { next_water_check: string | null }) => {
+      if (!f.next_water_check) return false
+      const t = new Date(f.next_water_check).getTime()
+      return t > now && t <= soonMs
+    }
   ) as { id: string; name: string; next_water_check: string }[]
 
   // 作業種別ごとの集計
@@ -91,7 +93,7 @@ export default async function DashboardPage() {
             <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Droplets size={16} className="text-orange-500" />
-                <span className="text-sm font-semibold text-orange-700">3日以内に水管理 ({waterSoon.length}件)</span>
+                <span className="text-sm font-semibold text-orange-700">3時間以内に水管理 ({waterSoon.length}件)</span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {waterSoon.map(f => (
