@@ -1,5 +1,6 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { Droplets, X } from 'lucide-react'
 
@@ -9,12 +10,17 @@ interface Props {
 }
 
 const PRESETS = [
-  { label: '1時間後', hours: 1 },
-  { label: '3時間後', hours: 3 },
-  { label: '6時間後', hours: 6 },
-  { label: '12時間後', hours: 12 },
-  { label: '24時間後', hours: 24 },
-  { label: '48時間後', hours: 48 },
+  { label: '1時間', hours: 1 },
+  { label: '2時間', hours: 2 },
+  { label: '3時間', hours: 3 },
+  { label: '4時間', hours: 4 },
+  { label: '5時間', hours: 5 },
+  { label: '6時間', hours: 6 },
+  { label: '7時間', hours: 7 },
+  { label: '8時間', hours: 8 },
+  { label: '12時間', hours: 12 },
+  { label: '24時間', hours: 24 },
+  { label: '48時間', hours: 48 },
 ]
 
 function hoursUntil(isoStr: string | null): number | null {
@@ -47,10 +53,32 @@ export function WaterCheckBadge({ nextWaterCheck }: { nextWaterCheck: string | n
 export default function WaterCheckSetter({ fieldId, nextWaterCheck }: Props) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [dropPos, setDropPos] = useState<{ top: number; left: number } | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
   const router = useRouter()
 
   const hours = hoursUntil(nextWaterCheck)
   const { cls, label } = badgeStyle(hours)
+
+  function handleToggle() {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect()
+      setDropPos({ top: rect.bottom + 4, left: rect.left })
+    }
+    setOpen(v => !v)
+  }
+
+  // ウィンドウリサイズ・スクロール時に閉じる
+  useEffect(() => {
+    if (!open) return
+    const close = () => setOpen(false)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    return () => {
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+    }
+  }, [open])
 
   async function setCheck(h: number) {
     setLoading(true)
@@ -77,10 +105,48 @@ export default function WaterCheckSetter({ fieldId, nextWaterCheck }: Props) {
     router.refresh()
   }
 
+  const dropdown = open && dropPos ? createPortal(
+    <>
+      <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} />
+      <div
+        className="fixed z-[9999] bg-white rounded-xl shadow-xl border p-3 w-56"
+        style={{ top: dropPos.top, left: dropPos.left }}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-semibold text-gray-600">次回チェックまで</span>
+          <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600">
+            <X size={13} />
+          </button>
+        </div>
+        <div className="grid grid-cols-3 gap-1 mb-2">
+          {PRESETS.map(p => (
+            <button
+              key={p.hours}
+              onClick={() => setCheck(p.hours)}
+              className="text-xs px-1 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium transition-colors text-center"
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        {nextWaterCheck && (
+          <button
+            onClick={clearCheck}
+            className="w-full text-xs px-2 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 transition-colors"
+          >
+            クリア
+          </button>
+        )}
+      </div>
+    </>,
+    document.body
+  ) : null
+
   return (
     <div className="relative">
       <button
-        onClick={() => setOpen(v => !v)}
+        ref={btnRef}
+        onClick={handleToggle}
         disabled={loading}
         className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium transition-opacity hover:opacity-80 disabled:opacity-50 ${cls}`}
         title="次回水管理チェック時刻を設定"
@@ -88,39 +154,7 @@ export default function WaterCheckSetter({ fieldId, nextWaterCheck }: Props) {
         <Droplets size={10} />
         {label}
       </button>
-
-      {open && (
-        <>
-          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full mt-1 z-40 bg-white rounded-xl shadow-lg border p-3 min-w-48">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-gray-600">次回チェックまで</span>
-              <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={13} />
-              </button>
-            </div>
-            <div className="grid grid-cols-2 gap-1.5 mb-2">
-              {PRESETS.map(p => (
-                <button
-                  key={p.hours}
-                  onClick={() => setCheck(p.hours)}
-                  className="text-xs px-2 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium transition-colors text-center"
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-            {nextWaterCheck && (
-              <button
-                onClick={clearCheck}
-                className="w-full text-xs px-2 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 transition-colors"
-              >
-                クリア
-              </button>
-            )}
-          </div>
-        </>
-      )}
+      {dropdown}
     </div>
   )
 }
