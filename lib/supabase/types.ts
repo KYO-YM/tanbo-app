@@ -15,6 +15,8 @@ export interface Field {
   fude_id: string | null
   notes: string | null
   next_water_check: string | null
+  transplant_date: string | null
+  variety: string | null
   created_at: string
   updated_at: string
 }

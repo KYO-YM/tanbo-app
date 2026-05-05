@@ -4,6 +4,7 @@ import FieldDeleteButton from '@/components/fields/FieldDeleteButton'
 import FieldEditButton from '@/components/fields/FieldEditButton'
 import FieldsCsvExport from '@/components/fields/FieldsCsvExport'
 import WaterCheckSetter from '@/components/fields/WaterCheckSetter'
+import RiceScheduleSetter from '@/components/fields/RiceScheduleSetter'
 import Link from 'next/link'
 import { MapPin } from 'lucide-react'
 import type { Field } from '@/lib/supabase/types'
@@ -38,6 +39,7 @@ export default async function FieldsPage() {
               <th className="text-left px-4 py-3 hidden sm:table-cell">所有者</th>
               <th className="text-left px-4 py-3 hidden md:table-cell">面積</th>
               <th className="text-left px-4 py-3 hidden lg:table-cell">次回水管理</th>
+              <th className="text-left px-4 py-3 hidden xl:table-cell">作付け</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
@@ -51,6 +53,9 @@ export default async function FieldsPage() {
                 </td>
                 <td className="px-4 py-3 hidden lg:table-cell">
                   <WaterCheckSetter fieldId={f.id} nextWaterCheck={f.next_water_check} />
+                </td>
+                <td className="px-4 py-3 hidden xl:table-cell">
+                  <RiceScheduleSetter fieldId={f.id} transplantDate={f.transplant_date} variety={f.variety} />
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-1">
