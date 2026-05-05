@@ -1,11 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
-import { LayoutDashboard } from 'lucide-react'
+import { LayoutDashboard, Droplets, AlertTriangle } from 'lucide-react'
+import WeatherWidget from '@/components/weather/WeatherWidget'
+import Link from 'next/link'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
 
   const [{ data: fields }, { data: records }, { data: workTypes }] = await Promise.all([
-    supabase.from('fields').select('id, name'),
+    supabase.from('fields').select('id, name, geometry, next_water_check'),
     supabase.from('work_records').select('field_id, work_type_id, status'),
     supabase.from('work_types').select('id, name, color').order('sort_order'),
   ])
@@ -15,6 +17,30 @@ export default async function DashboardPage() {
   const doneRecords = records?.filter(r => r.status === 'done').length ?? 0
   const inProgressRecords = records?.filter(r => r.status === 'in_progress').length ?? 0
   const completionRate = totalRecords > 0 ? Math.round((doneRecords / totalRecords) * 100) : 0
+
+  // 天気予報用の代表座標（全田んぼの重心）
+  let weatherLat = 35.6762
+  let weatherLon = 139.6503
+  if (fields && fields.length > 0) {
+    const allCoords = fields.flatMap((f: { geometry: { coordinates: number[][][] } }) => f.geometry.coordinates[0])
+    weatherLat = allCoords.reduce((s: number, c: number[]) => s + c[1], 0) / allCoords.length
+    weatherLon = allCoords.reduce((s: number, c: number[]) => s + c[0], 0) / allCoords.length
+  }
+
+  // 水管理アラート（今日以前）
+  const today = new Date().toISOString().slice(0, 10)
+  const waterAlerts = (fields ?? []).filter(
+    (f: { next_water_check: string | null }) => f.next_water_check && f.next_water_check <= today
+  ) as { id: string; name: string; next_water_check: string }[]
+
+  // 近日中の水管理（3日以内）
+  const soon = new Date()
+  soon.setDate(soon.getDate() + 3)
+  const soonStr = soon.toISOString().slice(0, 10)
+  const waterSoon = (fields ?? []).filter(
+    (f: { next_water_check: string | null }) =>
+      f.next_water_check && f.next_water_check > today && f.next_water_check <= soonStr
+  ) as { id: string; name: string; next_water_check: string }[]
 
   // 作業種別ごとの集計
   const byType = (workTypes ?? []).map(wt => {
@@ -26,12 +52,12 @@ export default async function DashboardPage() {
   }).filter(wt => wt.total > 0)
 
   // 田んぼごとの集計
-  const byField = (fields ?? []).map(f => {
+  const byField = (fields ?? []).map((f: { id: string; name: string }) => {
     const fRecords = (records ?? []).filter(r => r.field_id === f.id)
     const total = fRecords.length
     const done = fRecords.filter(r => r.status === 'done').length
     return { ...f, total, done, rate: total > 0 ? Math.round((done / total) * 100) : 0 }
-  }).filter(f => f.total > 0).sort((a, b) => b.rate - a.rate)
+  }).filter((f: { total: number }) => f.total > 0).sort((a: { rate: number }, b: { rate: number }) => b.rate - a.rate)
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
@@ -39,6 +65,45 @@ export default async function DashboardPage() {
         <LayoutDashboard size={22} className="text-green-700" />
         <h1 className="text-xl font-bold text-gray-800">ダッシュボード</h1>
       </div>
+
+      {/* 天気予報 */}
+      <WeatherWidget lat={weatherLat} lon={weatherLon} locationName="田んぼエリア" />
+
+      {/* 水管理アラート */}
+      {(waterAlerts.length > 0 || waterSoon.length > 0) && (
+        <div className="space-y-2">
+          {waterAlerts.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle size={16} className="text-red-500" />
+                <span className="text-sm font-semibold text-red-700">水管理チェック超過 ({waterAlerts.length}件)</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {waterAlerts.map(f => (
+                  <Link key={f.id} href="/fields" className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full hover:bg-red-200 transition-colors">
+                    🌾 {f.name} ({f.next_water_check})
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+          {waterSoon.length > 0 && (
+            <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Droplets size={16} className="text-orange-500" />
+                <span className="text-sm font-semibold text-orange-700">3日以内に水管理 ({waterSoon.length}件)</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {waterSoon.map(f => (
+                  <Link key={f.id} href="/fields" className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full hover:bg-orange-200 transition-colors">
+                    🌾 {f.name} ({f.next_water_check})
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* サマリーカード */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -53,14 +118,8 @@ export default async function DashboardPage() {
         <div className="bg-white rounded-xl shadow p-4 space-y-2">
           <h2 className="text-sm font-semibold text-gray-700">全体進捗</h2>
           <div className="flex h-4 rounded-full overflow-hidden bg-gray-100">
-            <div
-              className="bg-green-500 transition-all"
-              style={{ width: `${completionRate}%` }}
-            />
-            <div
-              className="bg-yellow-400 transition-all"
-              style={{ width: `${totalRecords > 0 ? Math.round((inProgressRecords / totalRecords) * 100) : 0}%` }}
-            />
+            <div className="bg-green-500 transition-all" style={{ width: `${completionRate}%` }} />
+            <div className="bg-yellow-400 transition-all" style={{ width: `${totalRecords > 0 ? Math.round((inProgressRecords / totalRecords) * 100) : 0}%` }} />
           </div>
           <div className="flex gap-4 text-xs text-gray-500">
             <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block" />完了 {doneRecords}</span>
@@ -71,7 +130,6 @@ export default async function DashboardPage() {
       )}
 
       <div className="grid sm:grid-cols-2 gap-4">
-        {/* 作業種別ごとの進捗 */}
         {byType.length > 0 && (
           <div className="bg-white rounded-xl shadow p-4 space-y-3">
             <h2 className="text-sm font-semibold text-gray-700">作業種別ごとの完了率</h2>
@@ -86,10 +144,7 @@ export default async function DashboardPage() {
                     <span>{wt.done}/{wt.total} ({wt.rate}%)</span>
                   </div>
                   <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{ width: `${wt.rate}%`, backgroundColor: wt.color }}
-                    />
+                    <div className="h-full rounded-full transition-all" style={{ width: `${wt.rate}%`, backgroundColor: wt.color }} />
                   </div>
                 </div>
               ))}
@@ -97,22 +152,18 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        {/* 田んぼごとの進捗 */}
         {byField.length > 0 && (
           <div className="bg-white rounded-xl shadow p-4 space-y-3">
             <h2 className="text-sm font-semibold text-gray-700">田んぼごとの完了率</h2>
             <div className="space-y-3">
-              {byField.map(f => (
+              {byField.map((f: { id: string; name: string; done: number; total: number; rate: number }) => (
                 <div key={f.id} className="space-y-1">
                   <div className="flex justify-between text-xs text-gray-600">
                     <span>{f.name}</span>
                     <span>{f.done}/{f.total} ({f.rate}%)</span>
                   </div>
                   <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-green-500 rounded-full transition-all"
-                      style={{ width: `${f.rate}%` }}
-                    />
+                    <div className="h-full bg-green-500 rounded-full transition-all" style={{ width: `${f.rate}%` }} />
                   </div>
                 </div>
               ))}

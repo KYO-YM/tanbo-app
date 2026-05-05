@@ -14,6 +14,7 @@ export interface Field {
   geometry: GeoJSONPolygon
   fude_id: string | null
   notes: string | null
+  next_water_check: string | null
   created_at: string
   updated_at: string
 }
@@ -44,6 +45,8 @@ export interface Profile {
   id: string
   name: string
   role: UserRole
+  line_user_id: string | null
+  line_link_code: string | null
   created_at: string
 }
 

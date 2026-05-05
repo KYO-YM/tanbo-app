@@ -3,6 +3,7 @@ import FieldImporter from '@/components/fields/FieldImporter'
 import FieldDeleteButton from '@/components/fields/FieldDeleteButton'
 import FieldEditButton from '@/components/fields/FieldEditButton'
 import FieldsCsvExport from '@/components/fields/FieldsCsvExport'
+import WaterCheckSetter from '@/components/fields/WaterCheckSetter'
 import Link from 'next/link'
 import { MapPin } from 'lucide-react'
 import type { Field } from '@/lib/supabase/types'
@@ -17,7 +18,7 @@ export default async function FieldsPage() {
   const fields = (fieldsData ?? []) as Field[]
 
   return (
-    <div className="max-w-4xl mx-auto p-4 space-y-6">
+    <div className="max-w-5xl mx-auto p-4 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-800">田んぼ一覧</h1>
         <div className="flex items-center gap-3">
@@ -34,7 +35,8 @@ export default async function FieldsPage() {
             <tr>
               <th className="text-left px-4 py-3">田んぼ名</th>
               <th className="text-left px-4 py-3 hidden sm:table-cell">所有者</th>
-              <th className="text-left px-4 py-3 hidden sm:table-cell">面積</th>
+              <th className="text-left px-4 py-3 hidden md:table-cell">面積</th>
+              <th className="text-left px-4 py-3 hidden lg:table-cell">次回水管理</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
@@ -43,8 +45,11 @@ export default async function FieldsPage() {
               <tr key={f.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium text-gray-800">{f.name}</td>
                 <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{f.owner ?? '-'}</td>
-                <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">
+                <td className="px-4 py-3 text-gray-500 hidden md:table-cell">
                   {f.area_ha ? `${(f.area_ha * 100).toFixed(1)} a` : '-'}
+                </td>
+                <td className="px-4 py-3 hidden lg:table-cell">
+                  <WaterCheckSetter fieldId={f.id} nextWaterCheck={f.next_water_check} />
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-1">

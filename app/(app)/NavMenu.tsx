@@ -15,6 +15,7 @@ const links = [
   { href: '/records', label: '作業記録' },
   { href: '/calendar', label: 'カレンダー' },
   { href: '/work-types', label: '作業種別' },
+  { href: '/settings', label: '設定' },
 ]
 
 export default function NavMenu({ isAdmin, userName }: Props) {
