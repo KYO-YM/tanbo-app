@@ -66,11 +66,11 @@ export default function RecordsClient({ records, fieldNames, workTypeNames }: Pr
   return (
     <div className="space-y-4">
       {/* フィルター */}
-      <div className="flex flex-wrap gap-2 items-center">
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
         <select
           value={fieldFilter}
           onChange={e => setFieldFilter(e.target.value)}
-          className="text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
+          className="text-sm border rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
         >
           <option value="">すべての田んぼ</option>
           {fieldNames.map(n => <option key={n} value={n}>{n}</option>)}
@@ -78,7 +78,7 @@ export default function RecordsClient({ records, fieldNames, workTypeNames }: Pr
         <select
           value={typeFilter}
           onChange={e => setTypeFilter(e.target.value)}
-          className="text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
+          className="text-sm border rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
         >
           <option value="">すべての作業</option>
           {workTypeNames.map(n => <option key={n} value={n}>{n}</option>)}
@@ -86,25 +86,56 @@ export default function RecordsClient({ records, fieldNames, workTypeNames }: Pr
         <select
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value)}
-          className="text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
+          className="text-sm border rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
         >
           <option value="">すべての状態</option>
           <option value="pending">未着手</option>
           <option value="in_progress">進行中</option>
           <option value="done">完了</option>
         </select>
-        <span className="text-sm text-gray-500 ml-auto">{filtered.length} 件</span>
-        <button
-          onClick={handleCsvExport}
-          className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-green-700 border border-gray-300 hover:border-green-500 rounded-lg px-3 py-1.5 transition-colors"
-        >
-          <Download size={13} />
-          CSV出力
-        </button>
+        <div className="flex items-center gap-2 col-span-2 sm:col-span-1 sm:ml-auto">
+          <span className="text-sm text-gray-500">{filtered.length} 件</span>
+          <button
+            onClick={handleCsvExport}
+            className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-green-700 border border-gray-300 hover:border-green-500 rounded-lg px-3 py-2 transition-colors"
+          >
+            <Download size={13} />
+            CSV
+          </button>
+        </div>
       </div>
 
-      {/* テーブル */}
-      <div className="bg-white rounded-xl shadow overflow-hidden">
+      {/* モバイル: カード */}
+      <div className="sm:hidden space-y-2">
+        {filtered.map(r => (
+          <div key={r.id} className="bg-white rounded-xl shadow p-4">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <div className="font-semibold text-gray-800">{r.fields?.name ?? '-'}</div>
+                {r.work_types && (
+                  <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: r.work_types.color }} />
+                    {r.work_types.name}
+                  </div>
+                )}
+                {r.work_date && <div className="text-xs text-gray-400">{r.work_date}</div>}
+                {r.memo && <div className="text-xs text-gray-500 mt-1">{r.memo}</div>}
+              </div>
+              <span className={`text-xs px-2 py-1 rounded-full font-medium flex-shrink-0 ml-2 ${STATUS_COLOR[r.status] ?? ''}`}>
+                {STATUS_LABEL[r.status] ?? r.status}
+              </span>
+            </div>
+          </div>
+        ))}
+        {filtered.length === 0 && (
+          <div className="text-center py-12 text-gray-400 text-sm bg-white rounded-xl shadow">
+            該当する作業記録がありません
+          </div>
+        )}
+      </div>
+
+      {/* デスクトップ: テーブル */}
+      <div className="hidden sm:block bg-white rounded-xl shadow overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
             <tr>
@@ -122,10 +153,7 @@ export default function RecordsClient({ records, fieldNames, workTypeNames }: Pr
                 <td className="px-4 py-3">
                   {r.work_types ? (
                     <span className="flex items-center gap-1.5">
-                      <span
-                        className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: r.work_types.color }}
-                      />
+                      <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: r.work_types.color }} />
                       {r.work_types.name}
                     </span>
                   ) : '-'}
@@ -135,20 +163,14 @@ export default function RecordsClient({ records, fieldNames, workTypeNames }: Pr
                     {STATUS_LABEL[r.status] ?? r.status}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-gray-500 hidden md:table-cell">
-                  {r.work_date ?? '-'}
-                </td>
-                <td className="px-4 py-3 text-gray-500 hidden lg:table-cell max-w-xs truncate">
-                  {r.memo ?? '-'}
-                </td>
+                <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{r.work_date ?? '-'}</td>
+                <td className="px-4 py-3 text-gray-500 hidden lg:table-cell max-w-xs truncate">{r.memo ?? '-'}</td>
               </tr>
             ))}
           </tbody>
         </table>
         {filtered.length === 0 && (
-          <div className="text-center py-12 text-gray-400 text-sm">
-            該当する作業記録がありません
-          </div>
+          <div className="text-center py-12 text-gray-400 text-sm">該当する作業記録がありません</div>
         )}
       </div>
     </div>

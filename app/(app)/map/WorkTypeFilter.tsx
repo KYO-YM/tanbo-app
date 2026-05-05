@@ -22,7 +22,7 @@ export default function WorkTypeFilter({ workTypes, selectedId }: Props) {
     <div className="absolute top-4 left-4 z-[1000] flex gap-2 flex-wrap max-w-[calc(100%-2rem)]">
       <button
         onClick={() => select(null)}
-        className={`px-3 py-1 rounded-full text-xs font-medium border shadow-sm transition-colors ${
+        className={`px-3 py-2 rounded-full text-xs font-medium border shadow-sm transition-colors ${
           !selectedId
             ? 'bg-green-700 text-white border-green-700'
             : 'bg-white text-gray-700 border-gray-300 hover:border-green-400'
@@ -34,7 +34,7 @@ export default function WorkTypeFilter({ workTypes, selectedId }: Props) {
         <button
           key={wt.id}
           onClick={() => select(wt.id)}
-          className={`px-3 py-1 rounded-full text-xs font-medium border shadow-sm transition-colors ${
+          className={`px-3 py-2 rounded-full text-xs font-medium border shadow-sm transition-colors ${
             selectedId === wt.id
               ? 'text-white border-transparent'
               : 'bg-white text-gray-700 border-gray-300'
