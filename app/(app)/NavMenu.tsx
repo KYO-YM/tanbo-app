@@ -10,7 +10,10 @@ interface Props {
 
 const links = [
   { href: '/map', label: '地図' },
+  { href: '/dashboard', label: 'ダッシュボード' },
   { href: '/fields', label: '田んぼ一覧' },
+  { href: '/records', label: '作業記録' },
+  { href: '/calendar', label: 'カレンダー' },
   { href: '/work-types', label: '作業種別' },
 ]
 

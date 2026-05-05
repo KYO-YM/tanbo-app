@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import FieldImporter from '@/components/fields/FieldImporter'
 import FieldDeleteButton from '@/components/fields/FieldDeleteButton'
+import FieldEditButton from '@/components/fields/FieldEditButton'
+import FieldsCsvExport from '@/components/fields/FieldsCsvExport'
 import Link from 'next/link'
 import { MapPin } from 'lucide-react'
 import type { Field } from '@/lib/supabase/types'
@@ -18,7 +20,10 @@ export default async function FieldsPage() {
     <div className="max-w-4xl mx-auto p-4 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-800">田んぼ一覧</h1>
-        <span className="text-sm text-gray-500">{fields.length} 枚登録済み</span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-500">{fields.length} 枚登録済み</span>
+          <FieldsCsvExport fields={fields} />
+        </div>
       </div>
 
       <FieldImporter />
@@ -42,10 +47,11 @@ export default async function FieldsPage() {
                   {f.area_ha ? `${(f.area_ha * 100).toFixed(1)} a` : '-'}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <div className="flex items-center justify-end gap-2">
+                  <div className="flex items-center justify-end gap-1">
+                    <FieldEditButton fieldId={f.id} fieldName={f.name} fieldOwner={f.owner} />
                     <Link
                       href={`/fields/${f.id}`}
-                      className="text-green-600 hover:underline text-xs font-medium"
+                      className="text-green-600 hover:underline text-xs font-medium px-1"
                     >
                       詳細
                     </Link>
