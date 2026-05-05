@@ -20,7 +20,6 @@ const PRESETS = [
   { label: '8時間', hours: 8 },
   { label: '12時間', hours: 12 },
   { label: '24時間', hours: 24 },
-  { label: '48時間', hours: 48 },
 ]
 
 function hoursUntil(isoStr: string | null): number | null {
