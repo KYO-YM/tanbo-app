@@ -1,13 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
-import { LayoutDashboard, Droplets, AlertTriangle } from 'lucide-react'
+import { LayoutDashboard, Droplets, AlertTriangle, Sprout } from 'lucide-react'
 import WeatherWidget from '@/components/weather/WeatherWidget'
 import Link from 'next/link'
+import { calcRiceSchedule } from '@/lib/utils/rice'
+import type { Field } from '@/lib/supabase/types'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
 
   const [{ data: fields }, { data: records }, { data: workTypes }] = await Promise.all([
-    supabase.from('fields').select('id, name, geometry, next_water_check'),
+    supabase.from('fields').select('id, name, geometry, next_water_check, transplant_date, variety'),
     supabase.from('work_records').select('field_id, work_type_id, status'),
     supabase.from('work_types').select('id, name, color').order('sort_order'),
   ])
@@ -33,6 +35,16 @@ export default async function DashboardPage() {
     (f: { next_water_check: string | null }) =>
       f.next_water_check && new Date(f.next_water_check).getTime() <= now
   ) as { id: string; name: string; next_water_check: string }[]
+
+  // 水稲スケジュール（7日以内）
+  const in7days = now + 7 * 86400000
+  const upcomingRice = (fields ?? []).flatMap((f: Pick<Field, 'id' | 'name' | 'transplant_date' | 'variety'>) => {
+    if (!f.transplant_date || !f.variety) return []
+    return calcRiceSchedule(f.id, f.name, f.transplant_date, f.variety).filter(e => {
+      const t = new Date(e.date).getTime()
+      return t >= now && t <= in7days
+    })
+  }).sort((a, b) => a.date.localeCompare(b.date))
 
   // 近日中の水管理（3時間以内）
   const soonMs = now + 3 * 3600000
@@ -104,6 +116,33 @@ export default async function DashboardPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* 今後7日の水稲スケジュール */}
+      {upcomingRice.length > 0 && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Sprout size={16} className="text-green-600" />
+            <span className="text-sm font-semibold text-green-700">今後7日の水稲作業（{upcomingRice.length}件）</span>
+          </div>
+          <div className="space-y-2">
+            {upcomingRice.map((e, i) => {
+              const d = new Date(e.date)
+              const mm = d.getMonth() + 1
+              const dd = d.getDate()
+              const diff = Math.round((d.getTime() - now) / 86400000)
+              const diffLabel = diff === 0 ? '今日' : diff === 1 ? '明日' : `${diff}日後`
+              return (
+                <div key={i} className="flex items-center gap-3 text-sm bg-white rounded-lg px-3 py-2">
+                  <span className="text-base">{e.emoji}</span>
+                  <span className="font-medium text-gray-800">{e.fieldName}</span>
+                  <span className="text-gray-600">{e.label}</span>
+                  <span className="ml-auto text-xs text-green-600 font-medium">{mm}/{dd}（{diffLabel}）</span>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
