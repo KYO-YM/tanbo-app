@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { MessageCircle, Copy, Check, Send } from 'lucide-react'
+import { MessageCircle, Copy, Check, Send, Sprout } from 'lucide-react'
 
 interface Props {
   linkCode: string | null
@@ -12,6 +12,8 @@ export default function LineSettings({ linkCode, isConnected, isConfigured }: Pr
   const [copied, setCopied] = useState(false)
   const [sending, setSending] = useState(false)
   const [sendResult, setSendResult] = useState<string | null>(null)
+  const [sendingRice, setSendingRice] = useState(false)
+  const [riceResult, setRiceResult] = useState<string | null>(null)
 
   async function copyCode() {
     if (!linkCode) return
@@ -20,17 +22,34 @@ export default function LineSettings({ linkCode, isConnected, isConfigured }: Pr
     setTimeout(() => setCopied(false), 2000)
   }
 
-  async function sendTestNotify() {
+  async function sendWaterNotify() {
     setSending(true)
     setSendResult(null)
     const res = await fetch('/api/line/notify', { method: 'POST' })
     const json = await res.json()
     if (res.ok) {
-      setSendResult(`✅ ${json.sent}名に通知を送信しました（対象: ${json.fields}田んぼ）`)
+      setSendResult(`✅ ${json.sent}名に通知しました（対象: ${json.fields}田んぼ）`)
     } else {
       setSendResult(`⚠️ ${json.message ?? json.error}`)
     }
     setSending(false)
+  }
+
+  async function sendRiceNotify() {
+    setSendingRice(true)
+    setRiceResult(null)
+    const res = await fetch('/api/cron/rice-notify')
+    const json = await res.json()
+    if (res.ok) {
+      if (json.sent > 0) {
+        setRiceResult(`✅ ${json.sent}名に通知しました（イベント: ${json.events}件）`)
+      } else {
+        setRiceResult(`ℹ️ ${json.message ?? '明日の水稲イベントはありません'}`)
+      }
+    } else {
+      setRiceResult(`⚠️ ${json.error}`)
+    }
+    setSendingRice(false)
   }
 
   return (
@@ -86,20 +105,54 @@ export default function LineSettings({ linkCode, isConnected, isConfigured }: Pr
           )}
 
           {isConnected && (
-            <div className="border-t pt-4 space-y-2">
-              <p className="text-sm font-medium text-gray-700">水管理アラートを手動送信</p>
-              <p className="text-xs text-gray-500">本日以前の水管理チェック日が設定されている田んぼを通知します</p>
-              <button
-                onClick={sendTestNotify}
-                disabled={sending}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
-              >
-                <Send size={14} />
-                {sending ? '送信中...' : 'LINE通知を送信'}
-              </button>
-              {sendResult && (
-                <p className="text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2">{sendResult}</p>
-              )}
+            <div className="border-t pt-4 space-y-4">
+              {/* 水管理通知 */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-700">💧 水管理アラートを手動送信</p>
+                <p className="text-xs text-gray-500">チェック時刻を超過している田んぼを通知します</p>
+                <button
+                  onClick={sendWaterNotify}
+                  disabled={sending}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  <Send size={14} />
+                  {sending ? '送信中...' : '水管理通知を送信'}
+                </button>
+                {sendResult && (
+                  <p className="text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2">{sendResult}</p>
+                )}
+              </div>
+
+              {/* 水稲スケジュール通知 */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                  <Sprout size={14} className="text-green-600" />
+                  水稲スケジュール通知を手動送信
+                </p>
+                <p className="text-xs text-gray-500">明日の作業（中干し・穂肥・収穫など）をLINE通知します</p>
+                <button
+                  onClick={sendRiceNotify}
+                  disabled={sendingRice}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
+                >
+                  <Sprout size={14} />
+                  {sendingRice ? '送信中...' : '水稲通知を送信'}
+                </button>
+                {riceResult && (
+                  <p className="text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2">{riceResult}</p>
+                )}
+              </div>
+
+              {/* GitHub Actions説明 */}
+              <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-500 space-y-1">
+                <p className="font-medium text-gray-600">⚙️ 自動通知（毎朝6時）の設定方法</p>
+                <p>GitHubリポジトリの Settings → Secrets に以下を追加：</p>
+                <ul className="list-disc list-inside space-y-0.5 pl-1">
+                  <li><code className="bg-white px-1 rounded border">CRON_SECRET</code>（任意の文字列）</li>
+                  <li><code className="bg-white px-1 rounded border">APP_URL</code>（例: https://tanbo-app-psi.vercel.app）</li>
+                </ul>
+                <p>設定後、GitHub Actionsが毎朝6時に自動送信します（無料）</p>
+              </div>
             </div>
           )}
         </div>

@@ -1,8 +1,3 @@
 {
-  "crons": [
-    {
-      "path": "/api/cron/rice-notify",
-      "schedule": "0 21 * * *"
-    }
-  ]
+  "framework": "nextjs"
 }

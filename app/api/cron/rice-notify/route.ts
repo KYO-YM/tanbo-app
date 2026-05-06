@@ -4,10 +4,13 @@ import { calcRiceSchedule } from '@/lib/utils/rice'
 import type { Field } from '@/lib/supabase/types'
 
 export async function GET(req: Request) {
-  // Vercel Cron の認証チェック
-  const authHeader = req.headers.get('authorization')
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // CRON_SECRET が設定されている場合のみ認証チェック（未設定なら手動実行として許可）
+  const cronSecret = process.env.CRON_SECRET
+  if (cronSecret) {
+    const authHeader = req.headers.get('authorization')
+    if (authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
   }
 
   const token = process.env.LINE_CHANNEL_ACCESS_TOKEN
