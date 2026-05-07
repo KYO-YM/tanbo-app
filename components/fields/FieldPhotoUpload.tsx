@@ -5,9 +5,35 @@ import { createClient } from '@/lib/supabase/client'
 
 interface Photo { id: string; url: string; caption: string | null; created_at: string }
 
+// Canvas APIで画像を圧縮（最大1280px / JPEG 80%）
+async function compressImage(file: File): Promise<Blob> {
+  const MAX_PX = 1280
+  const QUALITY = 0.80
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      let { width, height } = img
+      if (width > MAX_PX || height > MAX_PX) {
+        if (width >= height) { height = Math.round(height * MAX_PX / width); width = MAX_PX }
+        else { width = Math.round(width * MAX_PX / height); height = MAX_PX }
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('compress failed')), 'image/jpeg', QUALITY)
+    }
+    img.onerror = reject
+    img.src = url
+  })
+}
+
 export default function FieldPhotoUpload({ fieldId }: { fieldId: string }) {
   const [photos, setPhotos] = useState<Photo[]>([])
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<string>('')
   const [preview, setPreview] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -22,29 +48,41 @@ export default function FieldPhotoUpload({ fieldId }: { fieldId: string }) {
     if (!file) return
     setUploading(true)
 
-    const supabase = createClient()
-    const ext = file.name.split('.').pop()
-    const path = `${fieldId}/${Date.now()}.${ext}`
+    try {
+      // 圧縮
+      setUploadProgress('圧縮中...')
+      const compressed = await compressImage(file)
+      const sizeMB = (compressed.size / 1024 / 1024).toFixed(1)
 
-    const { error: upErr } = await supabase.storage
-      .from('field-photos')
-      .upload(path, file, { upsert: false })
+      // アップロード
+      setUploadProgress(`アップロード中 (${sizeMB}MB)...`)
+      const supabase = createClient()
+      const path = `${fieldId}/${Date.now()}.jpg`
 
-    if (upErr) { alert('アップロード失敗: ' + upErr.message); setUploading(false); return }
+      const { error: upErr } = await supabase.storage
+        .from('field-photos')
+        .upload(path, compressed, { contentType: 'image/jpeg', upsert: false })
 
-    const { data: { publicUrl } } = supabase.storage.from('field-photos').getPublicUrl(path)
+      if (upErr) { alert('アップロード失敗: ' + upErr.message); return }
 
-    const res = await fetch('/api/field-photos', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ field_id: fieldId, url: publicUrl, caption: null }),
-    })
-    if (res.ok) {
-      const saved: Photo = await res.json()
-      setPhotos(prev => [saved, ...prev])
+      const { data: { publicUrl } } = supabase.storage.from('field-photos').getPublicUrl(path)
+
+      const res = await fetch('/api/field-photos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ field_id: fieldId, url: publicUrl, caption: null }),
+      })
+      if (res.ok) {
+        const saved: Photo = await res.json()
+        setPhotos(prev => [saved, ...prev])
+      }
+    } catch (err) {
+      alert('エラーが発生しました: ' + String(err))
+    } finally {
+      setUploading(false)
+      setUploadProgress('')
+      if (fileRef.current) fileRef.current.value = ''
     }
-    setUploading(false)
-    if (fileRef.current) fileRef.current.value = ''
   }
 
   async function handleDelete(id: string) {
@@ -55,7 +93,6 @@ export default function FieldPhotoUpload({ fieldId }: { fieldId: string }) {
 
   return (
     <div className="space-y-3">
-      {/* アップロードボタン */}
       <div className="flex items-center gap-3">
         <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleUpload} />
         <button
@@ -64,11 +101,10 @@ export default function FieldPhotoUpload({ fieldId }: { fieldId: string }) {
           className="flex items-center gap-2 px-4 py-2.5 border-2 border-dashed border-gray-300 hover:border-green-400 rounded-xl text-sm text-gray-500 hover:text-green-600 transition-colors disabled:opacity-50 w-full justify-center"
         >
           <Camera size={16} />
-          {uploading ? 'アップロード中...' : '写真を追加'}
+          {uploading ? uploadProgress || 'アップロード中...' : '写真を追加（自動圧縮）'}
         </button>
       </div>
 
-      {/* 写真グリッド */}
       {photos.length > 0 && (
         <div className="grid grid-cols-3 gap-2">
           {photos.map(p => (
@@ -93,7 +129,6 @@ export default function FieldPhotoUpload({ fieldId }: { fieldId: string }) {
         </div>
       )}
 
-      {/* プレビューモーダル */}
       {preview && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setPreview(null)}>
           <button className="absolute top-4 right-4 text-white p-2 hover:bg-white/20 rounded-full">

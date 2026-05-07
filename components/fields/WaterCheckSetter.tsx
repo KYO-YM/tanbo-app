@@ -38,7 +38,13 @@ function badgeStyle(hours: number | null): { cls: string; label: string } {
   return { cls: 'bg-blue-50 text-blue-600', label: `あと${Math.round(hours)}時間` }
 }
 
+// リアルタイム更新バッジ（1分ごとに再計算）
 export function WaterCheckBadge({ nextWaterCheck }: { nextWaterCheck: string | null }) {
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 60000)
+    return () => clearInterval(id)
+  }, [])
   const hours = hoursUntil(nextWaterCheck)
   const { cls, label } = badgeStyle(hours)
   return (
@@ -53,8 +59,15 @@ export default function WaterCheckSetter({ fieldId, nextWaterCheck }: Props) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [dropPos, setDropPos] = useState<{ top: number; left: number } | null>(null)
+  const [, setTick] = useState(0)
   const btnRef = useRef<HTMLButtonElement>(null)
   const router = useRouter()
+
+  // 1分ごとにカウントダウンを再計算
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 60000)
+    return () => clearInterval(id)
+  }, [])
 
   const hours = hoursUntil(nextWaterCheck)
   const { cls, label } = badgeStyle(hours)
@@ -67,7 +80,6 @@ export default function WaterCheckSetter({ fieldId, nextWaterCheck }: Props) {
     setOpen(v => !v)
   }
 
-  // ウィンドウリサイズ・スクロール時に閉じる
   useEffect(() => {
     if (!open) return
     const close = () => setOpen(false)

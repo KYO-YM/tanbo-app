@@ -1,7 +1,7 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Save, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Save, Trash2, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import type { Harvest } from '@/lib/supabase/types'
 
 interface FieldWithArea {
@@ -23,7 +23,30 @@ export default function HarvestClient({ fields, initialHarvests }: Props) {
   const [edits, setEdits] = useState<Record<string, { amount_kg: string; note: string }>>({})
   const [saving, setSaving] = useState<Record<string, boolean>>({})
   const [deleting, setDeleting] = useState<Record<string, boolean>>({})
+  const [unitPrice, setUnitPrice] = useState<string>('') // 円/kg
+  const [totalExpenses, setTotalExpenses] = useState<number | null>(null)
   const router = useRouter()
+
+  // 単価をlocalStorageに保存
+  useEffect(() => {
+    const saved = localStorage.getItem('rice_unit_price')
+    if (saved) setUnitPrice(saved)
+  }, [])
+  useEffect(() => {
+    if (unitPrice) localStorage.setItem('rice_unit_price', unitPrice)
+  }, [unitPrice])
+
+  // 年度変更時に費用合計を取得
+  useEffect(() => {
+    fetch(`/api/expenses?year=${year}`)
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setTotalExpenses(data.reduce((s: number, e: { amount: number }) => s + e.amount, 0))
+        }
+      })
+      .catch(() => setTotalExpenses(null))
+  }, [year])
 
   const yearHarvests = useMemo(() => harvests.filter(h => h.year === year), [harvests, year])
 
@@ -69,6 +92,8 @@ export default function HarvestClient({ fields, initialHarvests }: Props) {
   const totalBales = Math.floor(totalKg / 60)
   const totalArea = fields.reduce((s, f) => s + f.areaM2, 0)
   const yieldPer10a = totalArea > 0 && totalKg > 0 ? Math.round((totalKg / totalArea) * 1000) : null
+  const revenue = unitPrice && totalKg > 0 ? Math.round(totalKg * parseFloat(unitPrice)) : null
+  const profit = revenue !== null && totalExpenses !== null ? revenue - totalExpenses : null
 
   function isDirty(fieldId: string) {
     const h = getHarvest(fieldId)
@@ -90,9 +115,22 @@ export default function HarvestClient({ fields, initialHarvests }: Props) {
         </button>
       </div>
 
+      {/* 概算単価入力 */}
+      <div className="bg-white rounded-xl shadow px-4 py-3 flex items-center gap-3">
+        <span className="text-sm text-gray-600 flex-shrink-0">概算単価</span>
+        <input
+          type="number" min="0" placeholder="例: 280"
+          value={unitPrice}
+          onChange={e => setUnitPrice(e.target.value)}
+          className="w-28 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
+        />
+        <span className="text-sm text-gray-400">円/kg</span>
+        {unitPrice && <span className="text-xs text-gray-400 ml-auto">収益 = 収穫量 × 単価 で計算</span>}
+      </div>
+
       {/* サマリー */}
       {totalKg > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-3 text-center">
             <div className="text-xl font-bold text-yellow-700">{totalKg.toFixed(0)}<span className="text-xs ml-1">kg</span></div>
             <div className="text-xs text-yellow-600 mt-0.5">合計収穫量</div>
@@ -101,7 +139,24 @@ export default function HarvestClient({ fields, initialHarvests }: Props) {
             <div className="text-xl font-bold text-amber-700">{totalBales}<span className="text-xs ml-1">俵</span></div>
             <div className="text-xs text-amber-600 mt-0.5">60kg換算</div>
           </div>
-          {yieldPer10a && (
+          {revenue !== null && (
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-center">
+              <div className="text-xl font-bold text-blue-700">¥{revenue.toLocaleString()}</div>
+              <div className="text-xs text-blue-500 mt-0.5">概算収益</div>
+            </div>
+          )}
+          {profit !== null && (
+            <div className={`border rounded-xl p-3 text-center ${profit >= 0 ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
+              <div className={`text-xl font-bold flex items-center justify-center gap-1 ${profit >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                {profit >= 0 ? <TrendingUp size={16} /> : profit === 0 ? <Minus size={16} /> : <TrendingDown size={16} />}
+                ¥{Math.abs(profit).toLocaleString()}
+              </div>
+              <div className={`text-xs mt-0.5 ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                {profit >= 0 ? '概算利益' : '概算赤字'}（費用¥{totalExpenses?.toLocaleString()}）
+              </div>
+            </div>
+          )}
+          {yieldPer10a && !revenue && (
             <div className="bg-green-50 border border-green-100 rounded-xl p-3 text-center col-span-2 sm:col-span-1">
               <div className="text-xl font-bold text-green-700">{yieldPer10a}<span className="text-xs ml-1">kg/10a</span></div>
               <div className="text-xs text-green-600 mt-0.5">10アール当たり</div>
