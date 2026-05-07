@@ -3,7 +3,8 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import WorkRecordForm from '@/components/fields/WorkRecordForm'
 import FieldEditor from './FieldEditor'
-import { ChevronLeft, Sprout, Wheat } from 'lucide-react'
+import FieldPhotoUpload from '@/components/fields/FieldPhotoUpload'
+import { ChevronLeft, Sprout, Wheat, Camera } from 'lucide-react'
 import type { Field, WorkType, WorkRecord, Profile, Harvest } from '@/lib/supabase/types'
 import { calcAreaM2, formatArea } from '@/lib/utils/geo'
 import { calcRiceSchedule, VARIETIES } from '@/lib/utils/rice'
@@ -128,6 +129,15 @@ export default async function FieldDetailPage({
           </div>
         </div>
       )}
+
+      {/* 写真 */}
+      <div className="bg-white rounded-xl shadow p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Camera size={16} className="text-blue-500" />
+          <h2 className="font-semibold text-gray-700">写真</h2>
+        </div>
+        <FieldPhotoUpload fieldId={id} />
+      </div>
 
       {/* 作業記録 */}
       <div className="flex items-center justify-between">
