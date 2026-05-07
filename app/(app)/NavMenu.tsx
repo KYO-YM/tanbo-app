@@ -18,6 +18,7 @@ const links = [
   { href: '/expenses', label: '費用管理' },
   { href: '/work-types', label: '作業種別' },
   { href: '/settings', label: '設定' },
+  { href: '/guide', label: '使い方' },
 ]
 
 export default function NavMenu({ isAdmin, userName }: Props) {
